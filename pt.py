@@ -268,26 +268,62 @@ def eqn_pt(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order
 
     print("pt 5 % 10.15f " %e5)
 
-    RHRHRHRHv = np.multiply(res, HRHRHRHv[:,0]).reshape(dim_tot_X,1)
-    HRHRHRHRHv,Smp5 = H1_build_tucker_blocked_sigma(n_blocks,tucker_blocks_1, lattice_blocks, n_body_order+pt_order, j12,RHRHRHRHv)
-    e6_main = np.dot(RHv.T, HRHRHRHRHv)
 
-    print("pt 6 % 10.15f " %e6_main)
-
-
+    #
     RRHv = np.multiply(res, RHv[:,0]).reshape(dim_tot_X,1)
     RRRHv = np.multiply(res,RRHv[:,0]).reshape(dim_tot_X,1)
 
     HRRRH = np.dot(RHv.T,RRHv)
     HRRRRH = np.dot(RHv.T,RRRHv)
+    #
 
-    e_8_1 = e2 * e2 * e2 * HRRRRH
-    e_8_2 = e2 * e2 * HRRH * HRRRH
-    e_8_3 = e2 * HRRH * HRRH * HRRH
+    #E6
+    RHRHRHRHv = np.multiply(res, HRHRHRHv[:,0]).reshape(dim_tot_X,1)
+    HRHRHRHRHv,Smp5 = H1_build_tucker_blocked_sigma(n_blocks,tucker_blocks_1, lattice_blocks, n_body_order+pt_order, j12,RHRHRHRHv)
+    e6_main = np.dot(RHv.T, HRHRHRHRHv)
 
-    e8_cut = 4 * e_8_1 + 12 * e_8_2 + 4 * e_8_3
+    print("pt 6 main % 10.15f " %e6_main)
 
-    print("pt8ct % 10.15f " %e8_cut)
+
+    RRHRHv = np.multiply(res, RHRHv[:,0]).reshape(dim_tot_X,1)
+    HRRHRHv,Smp5 = H1_build_tucker_blocked_sigma(n_blocks,tucker_blocks_1, lattice_blocks, n_body_order+pt_order, j12,RRHRHv)
+    HRHRRHRH = np.dot(RHv.T,HRRHRHv)
+    e6_renorm1 = e2 * HRHRRHRH
+
+
+    HRRHRHRH = np.dot(RHv.T,RHRHRHv)
+    e6_renorm2 = 2 * e2 * HRRHRHRH
+
+
+
+    HRRHRH = np.dot(RHv.T,RHRHv)
+    e6_renorm3 = 2 * e3 * HRRHRH
+
+
+    e6_renorm4 =  e4_main * HRRH 
+
+    e6_renorm5 =  e2 * e2 * HRRRH  
+
+    e6_renorm6 =  e2 * HRRH * HRRH  
+
+    e6 = e6_main - e6_renorm1 - e6_renorm2 - e6_renorm3 - e6_renorm4 + e6_renorm5 + e6_renorm6
+
+    print("pt 6 r1 % 10.15f " %e6_renorm1)
+    print("pt 6 r2 % 10.15f " %e6_renorm2)
+    print("pt 6 r3 % 10.15f " %e6_renorm3)
+    print("pt 6 r4 % 10.15f " %e6_renorm4)
+    print("pt 6 r5 % 10.15f " %e6_renorm5)
+    print("pt 6 r6 % 10.15f " %e6_renorm6)
+    print("")
+    print("pt 6    % 10.15f " %e6)
+
+    #e_8_1 = e2 * e2 * e2 * HRRRRH
+    #e_8_2 = e2 * e2 * HRRH * HRRRH
+    #e_8_3 = e2 * HRRH * HRRH * HRRH
+
+    #e8_cut = 4 * e_8_1 + 12 * e_8_2 + 4 * e_8_3
+
+    #print("pt8ct % 10.15f " %e8_cut)
 
 
 
@@ -295,7 +331,7 @@ def eqn_pt(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order
     return e2
 # }}}
 
-def PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,pt_order, l, v, j12, pt_type):
+def PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,pt_order, l, v, j12, pt_type,pt_mit):
 # {{{
     do_2b_diag = 0
 
@@ -314,6 +350,9 @@ def PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,
 
     n_roots = v.shape[1]
     e2 = np.zeros((n_roots))
+
+    if pt_mit > pt_order :
+        print("Method may not be extensive")
 
     tucker_blocks_0 = {}
     tucker_blocks_1 = {}
@@ -340,9 +379,9 @@ def PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,
 
     D_X = np.zeros((dim_tot_X))     #diagonal of X space
     H_Xs = np.zeros((dim_tot_X, n_roots))
-    E_mpn = np.zeros((pt_order+1,n_roots))         #PT energy
+    E_mpn = np.zeros((pt_mit+1,n_roots))         #PT energy
     #v_n = np.zeros((dim_tot_X,n_roots))   #list of PT vectors
-    v_n = np.zeros((dim_tot_X,n_roots*(pt_order+1)))   #list of PT vectors
+    v_n = np.zeros((dim_tot_X,n_roots*(pt_mit+1)))   #list of PT vectors
        
 
     print " Configurations defining the variational space"
@@ -373,7 +412,6 @@ def PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,
     E_corr = np.zeros(n_roots)
     
     
-    print "WOINAWIOAION"
     #first_order_E = np.zeros((n_roots,n_roots))
     first_order_E = H_Xs[0:n_roots,:]
     first_order_E = v.dot(first_order_E)
@@ -381,6 +419,10 @@ def PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,
 
     print
     print "     PT correction   "
+
+    
+    ##truncate at given order for extensive result
+    pt_mit = pt_order-1
 
     for s in range(0, n_roots):
         res = 1/(l[s]-D_X)
@@ -396,7 +438,8 @@ def PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,
         E_corr[s] = E_mpn[0,s] 
         print " %6i  %16.8f  %16.8f " %(2,E_mpn[0,s],E_corr[s])
 
-        for i in range(1,pt_order-1):
+        #for i in range(1,pt_order-1):
+        for i in range(1,pt_mit):
             h1,S1 = H1_build_tucker_blocked_sigma(n_blocks,tucker_blocks_1, lattice_blocks, n_body_order, j12,v_n[:,(i-1)*n_roots+s].reshape(dim_tot_X,1))
             v_n[:,i*n_roots+s] = h1.reshape(dim_tot_X)
             #RENORMALISED TERMS
@@ -431,7 +474,6 @@ def PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,
     v_lcc = v_lcc/norm
     return E_corr, v_lcc
 # }}}
-
 
 def PT_lcc_3(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,pt_order, l, v, j12, pt_type,n):
 # {{{
@@ -532,6 +574,7 @@ def PT_lcc_3(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_ord
             h1,S1 = H1_build_tucker_blocked_sigma(n_blocks,tucker_blocks_1, lattice_blocks, n_body_order, j12,v_n[:,s].reshape(dim_tot_X,1))
             v_n[:,s] = h1.reshape(dim_tot_X)
             v_n[:,s] = np.multiply(res,v_n[:,s]) 
+
             E_mpn[i,s] = np.dot(H_Xs[:,s].T, v_n[:,s])
             E_corr[s] += E_mpn[i,s]
             print " %6i  %16.8f  %16.8f " %(i+2,E_mpn[i,s],E_corr[s])
@@ -562,7 +605,6 @@ def PT_lcc_3(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_ord
     return E_corr, v_lcc
 
 # }}}
-
 
 def PT_lcc_2(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,pt_order, l, v, j12, pt_type):
     do_2b_diag = 0# {{{
@@ -714,7 +756,6 @@ def PT_lcc(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order
     return E_corr
 
 # }}}
-
 
 def PT_nth_vector(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,pt_order, l, v, j12, pt_type):
 # {{{
@@ -1055,7 +1096,7 @@ def pt_build_H1(blocks,tb_l, tb_r,j12):
     H = H.reshape(tb_l.full_dim,tb_r.full_dim)
     S2 = S2.reshape(tb_l.full_dim,tb_r.full_dim)
     return H,S2
-
+    # }}}
 
 def pt_build_H1v(blocks,tb_l, tb_r,j12,v):
   # {{{
@@ -1325,8 +1366,7 @@ def pt_build_H1v(blocks,tb_l, tb_r,j12,v):
         S2v += s2v.reshape(tb_l.full_dim, n_sig)
 
     return Hv,S2v
-
-
+    # }}}
 
 def H1_build_tucker_blocked_sigma(n_blocks,tucker_blocks, lattice_blocks, n_body_order, j12,v):
     #{{{
@@ -1366,14 +1406,14 @@ def H1_build_tucker_blocked_sigma(n_blocks,tucker_blocks, lattice_blocks, n_body
             #H[tb_r.start:tb_r.stop, tb_l.start:tb_l.stop] = H[tb_l.start:tb_l.stop, tb_r.start:tb_r.stop].T
 
     return Hv, S2v
-
+    # }}}
 
 def build_dimer_newH0Sz(tb_l, tb_r, Bi, Bj,j12):
+# {{{
     """
     A build dimer block to confirm if the Sz.Sz in between two blocks are diagonal or not.
     Not in use. Also Sz.Sz not diagonal.
     """
-# {{{
     bi = Bi.index
     bj = Bj.index
     
@@ -1659,3 +1699,4 @@ def pt_build_H0Sz(blocks,tb_l, tb_r,j12):
     H = H.reshape(tb_l.full_dim,tb_r.full_dim)
     S2 = S2.reshape(tb_l.full_dim,tb_r.full_dim)
     return H,S2
+    # }}}

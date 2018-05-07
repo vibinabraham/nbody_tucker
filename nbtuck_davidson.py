@@ -144,6 +144,7 @@ parser.add_argument('-mit', '--max_iter', type=int, default=30, help='Max iterat
 parser.add_argument('-pt','--pt_order', type=int, default=0, help='PT correction order ?', required=False)
 parser.add_argument('-pt_type','--pt_type', type=str, default='mp', choices=['mp','en','lcc'], help='PT correction denominator type', required=False)
 parser.add_argument('-pt_mit', '--pt_max_iter', type=int, default=80, help='Max iterations for the PT convergence to get lcc (same as pt_order for mp pt ', required=False)
+parser.add_argument('-pt_after', '--pt_after_tucker_optim', type=int, default=0, help='Do the perturbative correction after tucker optimization ', required=False)
 parser.add_argument('-ms','--target_ms', type=float, default=0, help='Target ms space', required=False)
 parser.add_argument('-opt','--optimization', type=str, default="diis", help='Optimization algorithm for Tucker factors',choices=["none", "diis"], required=False)
 parser.add_argument('-diis_thresh','--diis_thresh', type=int, default=8, help='Threshold for pspace diis iterations', required=False)
@@ -801,7 +802,7 @@ for it in range(0,maxiter):
             print 
             if pt_order != n_body_order:
                 print "WARNING: Excitation order not same as PT order (The method might not be size extensive)"
-            e2, v_pt = PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,pt_order, l, v, j12, pt_type)
+            e2, v_pt = PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,pt_order, l, v, j12, pt_type, pt_mit)
             
             ##For checking each renormalised and normal terms, use this function.
             #e2 = eqn_pt(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,pt_order, l, v, j12, pt_type)
@@ -1054,6 +1055,29 @@ if pt_order >= 2:
             print " %10i  %12.8f  %12.1e" %(ei,e,e-energy_per_iter_lcc[ei-1])
         else:
             print " %10i  %12.8f  %12s" %(ei,e,"")
+
+if args['pt_after_tucker_optim'] == 1:
+    print "PT type : MP"
+    print 
+    pt_order = n_body_order
+    n_roots = args['n_roots']
+    pt_type = 'mp'
+    l_lcc = np.zeros(v.shape[1])
+    
+    if pt_order != n_body_order:
+        print "WARNING: Excitation order not same as PT order (The method might not be size extensive)"
+    e2, v_pt = PT_mp(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,pt_order, l, v, j12, pt_type, pt_mit)
+    
+    ##For checking each renormalised and normal terms, use this function.
+    #e2 = eqn_pt(n_blocks,lattice_blocks, tucker_blocks, tucker_blocks_pt,n_body_order,pt_order, l, v, j12, pt_type)
+
+    print
+    print " %5s    %16s  %16s  %12s" %("State","Energy LCC","Relative","<S2>")
+    for i in range(0,n_roots):
+        e = l[i] + e2[i]
+        e0 = l[0] + e2[0]
+        l_lcc[i] = l[i] +  e2[i]
+        print " %5i =  %16.8f  %16.8f  %12.8f" %(i,e*convert,(e-e0)*convert,abs(S2[i,i]))
 
 print
 print " Input arguments"
